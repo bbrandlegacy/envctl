@@ -98,7 +98,7 @@ envctl context [--profile <name>] [--envdesc .envdesc] [--json]
 envctl diff <PROFILE_A> <PROFILE_B> [--json]
 envctl run -- [command] [args...]
 
-envctl ai install-skill [--target generic|claude|chatgpt|cursor|openai-functions] [--path PATH] [--global|--local] [--apply]
+envctl ai install-skill [--target generic|claude|chatgpt|cursor|openai-functions] [--path PATH] [--global] [--apply]
 envctl mcp [--transport stdio]
 ```
 
