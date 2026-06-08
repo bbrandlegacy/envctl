@@ -1,0 +1,24 @@
+# Build artifacts
+/bin/
+*.exe
+*.test
+
+# Vault and local secrets
+.envctl/
+.envctl-pass
+.envctl/skills/
+
+# Common Go artifacts
+.envrc
+.coverage
+coverage.out
+
+# Local agent/AI planning artifacts
+.bmad/
+_bmad/
+_bmad-output/
+.agents/
+
+# OS/editor noise
+.DS_Store
+Thumbs.db
