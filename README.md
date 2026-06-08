@@ -38,7 +38,7 @@ A secure, profile-aware CLI for managing environment variables with local encryp
 ### Build locally
 
 ```bash
-git clone <your-github-org>/envctl.git
+git clone https://github.com/bbrandlegacy/envctl.git
 cd envctl
 
 go build -o envctl ./cmd/envctl
@@ -220,4 +220,4 @@ If you want to extend `envctl`, start from the command and application layers un
 
 ## License
 
-This project is available under the MIT License. Add your preferred license text in `LICENSE` if you plan to publish.
+This project is available under the MIT License.
