@@ -10,11 +10,11 @@ import (
 type IntegrationTarget string
 
 const (
-	TargetGeneric   IntegrationTarget = "generic"
-	TargetClaude    IntegrationTarget = "claude"
-	TargetChatGPT   IntegrationTarget = "chatgpt"
-	TargetCursor    IntegrationTarget = "cursor"
-	TargetOpenAIFn  IntegrationTarget = "openai-functions"
+	TargetGeneric  IntegrationTarget = "generic"
+	TargetClaude   IntegrationTarget = "claude"
+	TargetChatGPT  IntegrationTarget = "chatgpt"
+	TargetCursor   IntegrationTarget = "cursor"
+	TargetOpenAIFn IntegrationTarget = "openai-functions"
 )
 
 type SkillCommand struct {
@@ -75,9 +75,42 @@ func DefaultManifestPath(target IntegrationTarget, global bool) (string, error) 
 	return filepath.Join(".envctl", "skills", string(target)+".skill.json"), nil
 }
 
-func RenderManifest(target IntegrationTarget, defaultProfile, vaultPath, binary string) ([]byte, error) {
+func RenderManifest(target IntegrationTarget, defaultProfile, vaultPath, binary string, includeExec, includeSensitiveGet bool) ([]byte, error) {
 	if !ValidateTarget(string(target)) {
 		return nil, fmt.Errorf("unsupported target: %s", target)
+	}
+	commands := []SkillCommand{
+		{
+			Name:        "envctl_context",
+			Description: "Inspect environment shape and variable metadata without leaking values.",
+			Command:     binary + " context --profile ${profile} --json",
+			Tags:        []string{"safe", "context", "metadata"},
+		},
+	}
+	notes := []string{
+		"Safe outputs such as context/list/diff expose names, metadata, and SET/MISSING state only; they do not expose raw values.",
+	}
+	if includeExec {
+		commands = append(commands, SkillCommand{
+			Name:        "envctl_run",
+			Description: "Execute a command with injected profile variables. Treat child output as potentially sensitive.",
+			Command:     binary + " run --profile ${profile} -- ${command}",
+			Tags:        []string{"runtime", "secrets", "execution", "sensitive-output"},
+		})
+		notes = append(notes, "Exec manifest mode is enabled: command execution may return child process output; treat that output as potentially sensitive if the child prints environment values.")
+	} else {
+		notes = append(notes, "Command execution is omitted by default. Regenerate with the exec option only for trusted local workflows that need runtime injection.")
+	}
+	if includeSensitiveGet {
+		commands = append(commands, SkillCommand{
+			Name:        "envctl_get",
+			Description: "Retrieve a single raw value when explicitly needed. This exposes sensitive data.",
+			Command:     binary + " secrets get ${key} --profile ${profile}",
+			Tags:        []string{"explicit", "sensitive", "raw-secret"},
+		})
+		notes = append(notes, "Privileged manifest mode is enabled: envctl_get can expose raw secret values and should only be granted to trusted local operators.")
+	} else {
+		notes = append(notes, "Raw secret retrieval is omitted by default. Regenerate with the privileged/sensitive option only when a trusted workflow explicitly needs raw secret access.")
 	}
 	manifest := SkillManifest{
 		Schema:         "envctl-skill/v1",
@@ -87,30 +120,8 @@ func RenderManifest(target IntegrationTarget, defaultProfile, vaultPath, binary 
 		DefaultProfile: defaultProfile,
 		VaultPath:      vaultPath,
 		Binary:         binary,
-		Commands: []SkillCommand{
-			{
-				Name:        "envctl_context",
-				Description: "Inspect environment shape and variable metadata without leaking values.",
-				Command:     binary + " context --profile ${profile} --json",
-				Tags:        []string{"safe", "context", "metadata"},
-			},
-			{
-				Name:        "envctl_run",
-				Description: "Execute a command with injected profile variables.",
-				Command:     binary + " run --profile ${profile} -- ${command}",
-				Tags:        []string{"runtime", "secrets", "execution"},
-			},
-			{
-				Name:        "envctl_get",
-				Description: "Retrieve a single raw value when explicitly needed.",
-				Command:     binary + " secrets get ${key} --profile ${profile}",
-				Tags:        []string{"explicit", "sensitive"},
-			},
-		},
-		Notes: []string{
-			"Use only the explicit commands and keep raw values out of prompts unless using envctl get.",
-			"This manifest is transport-agnostic; wire it to Claude, ChatGPT, Cursor, or your internal assistant runtime as needed.",
-		},
+		Commands:       commands,
+		Notes:          notes,
 	}
 
 	return json.MarshalIndent(manifest, "", "  ")

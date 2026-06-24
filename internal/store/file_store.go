@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 
 	"envctl/internal/crypto"
 	"envctl/internal/domain"
@@ -29,7 +30,13 @@ func (s *VaultStore) Exists() bool {
 
 func (s *VaultStore) EnsureDir() error {
 	dir := filepath.Dir(s.path)
-	return os.MkdirAll(dir, 0o700)
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return err
+	}
+	if runtime.GOOS != "windows" {
+		return os.Chmod(dir, 0o700)
+	}
+	return nil
 }
 
 func (s *VaultStore) Load(passphrase string) (*domain.Vault, error) {
@@ -62,5 +69,56 @@ func (s *VaultStore) Save(v *domain.Vault, passphrase string) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(s.path, encrypted, 0o600)
+	return s.writeFileAtomic(encrypted)
+}
+
+func (s *VaultStore) writeFileAtomic(data []byte) error {
+	dir := filepath.Dir(s.path)
+	tmp, err := os.CreateTemp(dir, ".vault-*.tmp")
+	if err != nil {
+		return err
+	}
+	tmpPath := tmp.Name()
+	cleanup := true
+	defer func() {
+		if cleanup {
+			_ = os.Remove(tmpPath)
+		}
+	}()
+
+	if _, err := tmp.Write(data); err != nil {
+		_ = tmp.Close()
+		return err
+	}
+	if err := tmp.Chmod(0o600); err != nil {
+		_ = tmp.Close()
+		return err
+	}
+	if err := tmp.Sync(); err != nil {
+		_ = tmp.Close()
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		return err
+	}
+	if err := os.Rename(tmpPath, s.path); err != nil {
+		return err
+	}
+	if err := syncDir(dir); err != nil {
+		return err
+	}
+	cleanup = false
+	return nil
+}
+
+func syncDir(dir string) error {
+	if runtime.GOOS == "windows" {
+		return nil
+	}
+	dirHandle, err := os.Open(dir)
+	if err != nil {
+		return err
+	}
+	defer dirHandle.Close()
+	return dirHandle.Sync()
 }

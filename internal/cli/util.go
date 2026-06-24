@@ -2,9 +2,9 @@ package cli
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
-	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"

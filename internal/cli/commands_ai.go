@@ -26,6 +26,8 @@ func newAIInstallSkillCommand() *cobra.Command {
 	var apply bool
 	var force bool
 	var defaultProfile string
+	var includeExec bool
+	var privileged bool
 
 	cmd := &cobra.Command{
 		Use:   "install-skill",
@@ -39,7 +41,7 @@ func newAIInstallSkillCommand() *cobra.Command {
 				return fmt.Errorf("unsupported AI target '%s' (use one of: %s)", target, strings.Join(ai.SupportedTargets(), ", "))
 			}
 
-			payload, err := ai.RenderManifest(ai.IntegrationTarget(target), defaultProfile, resolveVaultPath(), "envctl")
+			payload, err := ai.RenderManifest(ai.IntegrationTarget(target), defaultProfile, resolveVaultPath(), "envctl", includeExec, privileged)
 			if err != nil {
 				return err
 			}
@@ -81,6 +83,8 @@ func newAIInstallSkillCommand() *cobra.Command {
 	cmd.Flags().BoolVar(&apply, "apply", false, "Write manifest to disk")
 	cmd.Flags().BoolVarP(&force, "force", "f", false, "Overwrite existing manifest file")
 	cmd.Flags().StringVar(&defaultProfile, "default-profile", "", "Default profile in generated manifest")
+	cmd.Flags().BoolVar(&includeExec, "include-exec", false, "Include envctl_run command execution in the manifest")
+	cmd.Flags().BoolVar(&privileged, "include-sensitive-get", false, "Include envctl_get raw secret retrieval command in the manifest")
 
 	return cmd
 }

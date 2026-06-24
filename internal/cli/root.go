@@ -9,7 +9,7 @@ func NewRootCommand() *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:   "envctl",
 		Short: "Encrypted environment management with AI-safe workflows",
-		Long: "envctl manages local, profile-based secrets encrypted with age and provides AI-safe context output and command execution.",
+		Long:  "envctl manages local, profile-based secrets encrypted with age and provides AI-safe context output and command execution.",
 	}
 
 	rootCmd.PersistentFlags().StringVar(&cfg.vaultPath, "vault", "", "Path to the age-encrypted vault file (default .envctl/vault.age)")
@@ -30,6 +30,6 @@ func NewRootCommand() *cobra.Command {
 var cfg commandConfig
 
 type commandConfig struct {
-	vaultPath     string
+	vaultPath      string
 	passphraseFile string
 }

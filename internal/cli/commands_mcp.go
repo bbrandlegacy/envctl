@@ -19,21 +19,26 @@ import (
 
 func newMCPCommand() *cobra.Command {
 	var transport string
+	var allowExec bool
 
 	cmd := &cobra.Command{
 		Use:   "mcp",
-		Short: "Start MCP-style stdio adapter",
+		Short: "Start experimental MCP-style stdio adapter",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if transport != "stdio" {
 				return fmt.Errorf("unsupported transport: %s", transport)
 			}
+			mcpAllowExec = allowExec || os.Getenv("ENVCTL_MCP_ALLOW_EXEC") == "1"
 			return serveMCP()
 		},
 	}
 
 	cmd.Flags().StringVarP(&transport, "transport", "t", "stdio", "Transport mode (currently stdio)")
+	cmd.Flags().BoolVar(&allowExec, "allow-exec", false, "Enable envctl_exec tool for command execution with injected secrets")
 	return cmd
 }
+
+var mcpAllowExec bool
 
 func serveMCP() error {
 	in := bufio.NewScanner(os.Stdin)
@@ -104,34 +109,40 @@ func handleMCPRequest(req mcpRequest) (interface{}, error) {
 			}
 		}
 		return map[string]interface{}{
-			"name": "envctl",
-			"version": "1.0",
+			"name":     "envctl",
+			"version":  "1.0",
 			"protocol": "mcp-like",
-			"params": params,
+			"params":   params,
 		}, nil
 	case "tools/list":
-		return map[string]interface{}{
-			"tools": []map[string]interface{}{
-				{
-					"name":        "envctl_context",
-					"description": "Build AI-safe environment context for a profile.",
-					"inputSchema": map[string]interface{}{
-						"type":       "object",
-						"required":   []string{},
-						"properties": map[string]interface{}{},
-					},
-				},
-				{
-					"name":        "envctl_exec",
-					"description": "Execute command with profile-injected secrets.",
-					"inputSchema": map[string]interface{}{
-						"type":       "object",
-						"required":   []string{"command"},
-						"properties": map[string]interface{}{},
+		tools := []map[string]interface{}{
+			{
+				"name":        "envctl_context",
+				"description": "Build AI-safe environment context for a profile without raw values.",
+				"inputSchema": map[string]interface{}{
+					"type":     "object",
+					"required": []string{},
+					"properties": map[string]interface{}{
+						"profile": map[string]interface{}{"type": "string", "description": "Profile name; defaults to active profile."},
+						"envdesc": map[string]interface{}{"type": "string", "description": "Path to .envdesc metadata file."},
 					},
 				},
 			},
-		}, nil
+			{
+				"name":        "envctl_exec",
+				"description": "Execute command with profile-injected secrets. Disabled unless envctl mcp --allow-exec or ENVCTL_MCP_ALLOW_EXEC=1 is set; child output may be sensitive.",
+				"disabled":    !mcpAllowExec,
+				"inputSchema": map[string]interface{}{
+					"type":     "object",
+					"required": []string{"command"},
+					"properties": map[string]interface{}{
+						"profile": map[string]interface{}{"type": "string", "description": "Profile name; defaults to active profile."},
+						"command": map[string]interface{}{"type": "array", "items": map[string]interface{}{"type": "string"}, "description": "argv vector to execute."},
+					},
+				},
+			},
+		}
+		return map[string]interface{}{"tools": tools}, nil
 	case "tools/call":
 		if len(req.Params) == 0 {
 			return nil, &mcpRequestError{Code: "invalid_params", Message: "tools/call requires params"}
@@ -158,6 +169,9 @@ func handleMCPRequest(req mcpRequest) (interface{}, error) {
 			}
 			return map[string]interface{}{"profile": args.Profile, "context": payload}, nil
 		case "envctl_exec":
+			if !mcpAllowExec {
+				return nil, &mcpRequestError{Code: "permission_denied", Message: "envctl_exec is disabled by default; restart envctl mcp with --allow-exec or set ENVCTL_MCP_ALLOW_EXEC=1 to enable command execution"}
+			}
 			args := struct {
 				Profile string   `json:"profile"`
 				Command []string `json:"command"`
@@ -171,16 +185,16 @@ func handleMCPRequest(req mcpRequest) (interface{}, error) {
 			exitCode, output, err := runCommandForMCP(args.Profile, args.Command)
 			if err != nil {
 				return map[string]interface{}{
-					"command": args.Command,
+					"command":  args.Command,
 					"exitCode": exitCode,
-					"output": output,
-					"error": err.Error(),
+					"output":   output,
+					"error":    err.Error(),
 				}, nil
 			}
 			return map[string]interface{}{
-				"command": args.Command,
+				"command":  args.Command,
 				"exitCode": exitCode,
-				"output": output,
+				"output":   output,
 			}, nil
 		default:
 			return nil, &mcpRequestError{Code: "method_not_found", Message: fmt.Sprintf("unknown tool: %s", callReq.Name)}

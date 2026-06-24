@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"envctl/internal/app"
-	"envctl/internal/domain"
 	"envctl/internal/runner"
 
 	"github.com/spf13/cobra"
@@ -56,4 +55,3 @@ func newRunCommand() *cobra.Command {
 	cmd.Flags().StringVarP(&profile, "profile", "p", "", "Profile name (defaults to active profile)")
 	return cmd
 }
-

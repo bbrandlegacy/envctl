@@ -18,6 +18,11 @@ coverage.out
 _bmad/
 _bmad-output/
 .agents/
+docs/ABUN_ENGINEERING_HANDOFF.md
+docs/project-overview.md
+docs/source-tree-analysis.md
+docs/project-scan-report.json
+docs/index.md
 
 # OS/editor noise
 .DS_Store

@@ -43,4 +43,3 @@ func Decrypt(data []byte, passphrase string) ([]byte, error) {
 	}
 	return decryptedPayload, nil
 }
-

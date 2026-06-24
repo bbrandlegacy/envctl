@@ -11,9 +11,9 @@ import (
 const CurrentVaultVersion = 1
 
 type Vault struct {
-	Version      int                `json:"version"`
-	ActiveProfile string            `json:"activeProfile"`
-	Profiles     map[string]Profile `json:"profiles"`
+	Version       int                `json:"version"`
+	ActiveProfile string             `json:"activeProfile"`
+	Profiles      map[string]Profile `json:"profiles"`
 }
 
 type Profile struct {
